@@ -6,23 +6,26 @@
     <title>繁體中文 AI 學習工具 - Author: Wilson</title>
     
     <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
-    
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/buttaiwan/bpmfvs@master/dist/all.css">
 
     <style>
+        /* 1. 精確指向你上傳的 TTF 檔案 */
+        @font-face {
+            font-family: 'WilsonZhuyinFont';
+            src: url('./BpmfZihiKaiStd-Regular.ttf') format('truetype');
+            font-display: swap;
+        }
+
         body { font-family: "Microsoft JhengHei", sans-serif; background-color: #fdfbf7; display: flex; flex-direction: column; align-items: center; padding: 20px; }
         .container { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
         
-        /* 強制套用注音字型，並增加字體權重 */
+        /* 2. 強制套用你的字型 */
         .zhuyin-box { 
-            /* 這裡列出所有可能的字型名稱，確保瀏覽器能抓到其中一個 */
-            font-family: "BpmfGenSenRounded-R", "BpmfGenSenRounded", "BpmfGenSen", serif !important; 
+            font-family: 'WilsonZhuyinFont', serif !important; 
             font-size: 110px; 
             color: #d97706; 
             margin: 10px 0;
             cursor: pointer;
             line-height: 1.2;
-            display: block;
             min-height: 130px;
         }
 
@@ -61,7 +64,7 @@
     <script>
         let writer = null;
 
-        // 語音朗讀
+        // 讀音功能
         function playVoice() {
             const char = document.getElementById('charInput').value;
             if (!char) return;
@@ -116,9 +119,7 @@
             playVoice();
         }
 
-        function replay() {
-            if (writer) writer.animateCharacter();
-        }
+        function replay() { if (writer) writer.animateCharacter(); }
 
         function startQuiz() {
             if (writer) {
