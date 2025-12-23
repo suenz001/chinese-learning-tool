@@ -60,11 +60,74 @@
     </div>
 
     <script>
-        let writer = null;
+        var writer = null;
 
         function playVoice() {
-            const char = document.getElementById('charInput').value;
+            var char = document.getElementById('charInput').value;
             if (!char) return;
             window.speechSynthesis.cancel();
-            const msg = new SpeechSynthesisUtterance(char);
+            var msg = new SpeechSynthesisUtterance(char);
             msg.lang = 'zh-TW';
+            window.speechSynthesis.speak(msg);
+        }
+
+        function playSuccessTone() {
+            try {
+                var context = new (window.AudioContext || window.webkitAudioContext)();
+                var osc = context.createOscillator();
+                var gain = context.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, context.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1046.50, context.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.2, context.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.4);
+                osc.connect(gain);
+                gain.connect(context.destination);
+                osc.start();
+                osc.stop(context.currentTime + 0.4);
+            } catch (e) { console.log("音效播放失敗"); }
+        }
+
+        function handleSearch() {
+            var char = document.getElementById('charInput').value.trim();
+            if (!char) return;
+
+            document.getElementById('result-area').style.display = 'block';
+            document.getElementById('zhuyinDisplay').innerText = char;
+            document.getElementById('character-target').innerHTML = '';
+
+            writer = HanziWriter.create('character-target', char, {
+                width: 250,
+                height: 250,
+                padding: 10,
+                showOutline: true,
+                strokeColor: '#333',
+                charDataLoader: function(charToLoad, onComplete) {
+                    fetch('https://cdn.jsdelivr.net/npm/hanzi-writer-data-traditional@2/' + encodeURIComponent(charToLoad) + '.json')
+                        .then(function(res) { return res.json(); })
+                        .then(onComplete)
+                        .catch(function() {
+                            fetch('https://cdn.jsdelivr.net/npm/hanzi-writer-data@2/' + encodeURIComponent(charToLoad) + '.json')
+                                .then(function(res) { return res.json(); })
+                                .then(onComplete);
+                        });
+                }
+            });
+            writer.animateCharacter();
+            playVoice();
+        }
+
+        function replay() { if (writer) writer.animateCharacter(); }
+
+        function startQuiz() {
+            if (writer) {
+                writer.quiz({
+                    onComplete: function() {
+                        playSuccessTone();
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>
