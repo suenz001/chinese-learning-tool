@@ -29,7 +29,6 @@
             transition: transform 0.2s;
         }
 
-        /* 成功時的跳動動畫 */
         @keyframes success-bounce {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.1); }
@@ -46,7 +45,6 @@
             transition: all 0.3s;
         }
 
-        /* 成功時的閃爍光芒 */
         .flash-success {
             border-color: #4ade80 !important;
             box-shadow: 0 0 20px rgba(74, 222, 128, 0.5);
@@ -67,7 +65,7 @@
         
         <div class="input-group">
             <input type="text" id="charInput" maxlength="1" placeholder="字">
-            <button onclick="handleSearch()">開始學習</button>
+            <button onclick="unlockAndSearch()">開始學習</button>
         </div>
         
         <div id="result-area" style="display:none;">
@@ -87,6 +85,22 @@
 
     <script>
         var writer = null;
+        var audioCtx = null;
+
+        // 【iOS 特殊處理】在第一次點擊時啟動 AudioContext
+        function unlockAndSearch() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                // 播放一個靜音片段來解鎖 iOS 音訊
+                var buffer = audioCtx.createBuffer(1, 1, 22050);
+                var source = audioCtx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioCtx.destination);
+                source.start(0);
+            }
+            // 接著執行原本的搜尋邏輯
+            handleSearch();
+        }
 
         function playVoice() {
             var char = document.getElementById('charInput').value;
@@ -94,31 +108,34 @@
             window.speechSynthesis.cancel();
             var msg = new SpeechSynthesisUtterance(char);
             msg.lang = 'zh-TW';
+            msg.volume = 1.0;
             window.speechSynthesis.speak(msg);
         }
 
-        // 強化版成功音效：和弦響鈴聲
         function playSuccessTone() {
+            if (!audioCtx) return;
+            // 如果 AudioContext 被掛起（iOS 常見狀況），則恢復它
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
             try {
-                var context = new (window.AudioContext || window.webkitAudioContext)();
-                
                 function playNote(freq, startTime, duration) {
-                    var osc = context.createOscillator();
-                    var gain = context.createGain();
+                    var osc = audioCtx.createOscillator();
+                    var gain = audioCtx.createGain();
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(freq, startTime);
-                    gain.gain.setValueAtTime(0.4, startTime); // 音量加大
+                    gain.gain.setValueAtTime(0.5, startTime);
                     gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
                     osc.connect(gain);
-                    gain.connect(context.destination);
+                    gain.connect(audioCtx.destination);
                     osc.start(startTime);
                     osc.stop(startTime + duration);
                 }
 
-                // 播放叮-叮兩聲
-                playNote(659.25, context.currentTime, 0.3); // E5
-                playNote(880.00, context.currentTime + 0.1, 0.5); // A5
-            } catch (e) { console.log("音效失敗"); }
+                playNote(659.25, audioCtx.currentTime, 0.3); // E5
+                playNote(880.00, audioCtx.currentTime + 0.1, 0.5); // A5
+            } catch (e) { console.log("音效失敗", e); }
         }
 
         function handleSearch() {
@@ -128,7 +145,6 @@
             document.getElementById('result-area').style.display = 'block';
             document.getElementById('zhuyinDisplay').innerText = char;
             document.getElementById('character-target').innerHTML = '';
-            // 重設樣式
             document.getElementById('character-target').className = '';
             document.getElementById('zhuyinDisplay').classList.remove('success-animation');
 
@@ -159,17 +175,11 @@
             if (writer) {
                 writer.quiz({
                     onComplete: function() {
-                        // 播放成功音效
                         playSuccessTone();
-                        
-                        // 視覺回饋：閃爍綠光 + 字體跳動
                         var target = document.getElementById('character-target');
                         var zhuyin = document.getElementById('zhuyinDisplay');
-                        
                         target.classList.add('flash-success');
                         zhuyin.classList.add('success-animation');
-                        
-                        // 1.5秒後移除動畫類別以便下次使用
                         setTimeout(function() {
                             target.classList.remove('flash-success');
                             zhuyin.classList.remove('success-animation');
