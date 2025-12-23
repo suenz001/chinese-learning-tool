@@ -7,34 +7,30 @@
     
     <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
     
-    <style>
-        @font-face {
-            font-family: 'BpmfGenSen';
-            src: url('https://cdn.jsdelivr.net/gh/buttaiwan/bpmfvs@v1.200/dist/BpmfGenSenRounded-R.woff2') format('woff2');
-            font-display: swap;
-        }
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/buttaiwan/bpmfvs@master/dist/all.css">
 
+    <style>
         body { font-family: "Microsoft JhengHei", sans-serif; background-color: #fdfbf7; display: flex; flex-direction: column; align-items: center; padding: 20px; }
         .container { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
         
-        /* 核心：注音顯示區，強制覆蓋原本字體 */
+        /* 強制套用注音字型，並增加字體權重 */
         .zhuyin-box { 
-            font-family: 'BpmfGenSen', serif; 
-            font-size: 100px; 
+            /* 這裡列出所有可能的字型名稱，確保瀏覽器能抓到其中一個 */
+            font-family: "BpmfGenSenRounded-R", "BpmfGenSenRounded", "BpmfGenSen", serif !important; 
+            font-size: 110px; 
             color: #d97706; 
             margin: 10px 0;
             cursor: pointer;
-            line-height: 1.1;
-            transition: transform 0.2s;
+            line-height: 1.2;
+            display: block;
+            min-height: 130px;
         }
-        .zhuyin-box:active { transform: scale(0.95); }
 
         #character-target { width: 250px; height: 250px; border: 2px solid #eee; margin: 20px auto; background: #fff; border-radius: 10px; }
         .input-group { margin-bottom: 20px; }
-        input { font-size: 24px; padding: 10px; width: 60px; text-align: center; border: 2px solid #ddd; border-radius: 10px; outline: none; }
+        input { font-size: 24px; padding: 10px; width: 60px; text-align: center; border: 2px solid #ddd; border-radius: 10px; }
         button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #4a7c59; color: white; border: none; border-radius: 10px; font-weight: bold; margin: 5px; }
         .footer { margin-top: 40px; color: #94a3b8; font-size: 14px; font-weight: bold; }
-        .tip { font-size: 12px; color: #aaa; margin-top: -5px; }
     </style>
 </head>
 <body>
@@ -49,7 +45,7 @@
         
         <div id="result-area" style="display:none;">
             <div id="zhuyinDisplay" class="zhuyin-box" onclick="playVoice()"></div>
-            <p class="tip">💡 點擊上方字體聽發音</p>
+            <p style="font-size:12px; color:#aaa; margin-top:-15px;">💡 點擊上方聽發音</p>
             
             <div id="character-target"></div>
             
@@ -65,7 +61,7 @@
     <script>
         let writer = null;
 
-        // 讀音功能 (Web Speech API)
+        // 語音朗讀
         function playVoice() {
             const char = document.getElementById('charInput').value;
             if (!char) return;
@@ -75,24 +71,20 @@
             window.speechSynthesis.speak(msg);
         }
 
-        // 完成效果音 (使用音頻合成器)
+        // 完成音效
         function playSuccessTone() {
             const context = new (window.AudioContext || window.webkitAudioContext)();
             const osc = context.createOscillator();
             const gain = context.createGain();
-            
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(523.25, context.currentTime); // C5
-            osc.frequency.exponentialRampToValueAtTime(1046.50, context.currentTime + 0.1); // C6
-            
+            osc.frequency.setValueAtTime(523.25, context.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1046.50, context.currentTime + 0.1);
             gain.gain.setValueAtTime(0.2, context.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.5);
-            
+            gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.4);
             osc.connect(gain);
             gain.connect(context.destination);
-            
             osc.start();
-            osc.stop(context.currentTime + 0.5);
+            osc.stop(context.currentTime + 0.4);
         }
 
         function handleSearch() {
@@ -103,7 +95,6 @@
             document.getElementById('zhuyinDisplay').innerText = char;
             document.getElementById('character-target').innerHTML = '';
 
-            // 初始化筆畫動畫
             writer = HanziWriter.create('character-target', char, {
                 width: 250,
                 height: 250,
@@ -133,7 +124,7 @@
             if (writer) {
                 writer.quiz({
                     onComplete: function() {
-                        playSuccessTone(); // 手寫完成播放音效
+                        playSuccessTone();
                         alert("太棒了！練習完成！");
                     }
                 });
