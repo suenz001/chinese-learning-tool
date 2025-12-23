@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>繁體中文 AI 學習工具 - Author: Wilson</title>
+    <title>繁體中文 AI 學習工具 - 作者 Wilson Chang</title>
     
     <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
 
     <style>
-        /* 1. 精確指向你上傳的 TTF 檔案 */
         @font-face {
             font-family: 'WilsonZhuyinFont';
             src: url('./BpmfZihiKaiStd-Regular.ttf') format('truetype');
@@ -18,7 +17,6 @@
         body { font-family: "Microsoft JhengHei", sans-serif; background-color: #fdfbf7; display: flex; flex-direction: column; align-items: center; padding: 20px; }
         .container { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
         
-        /* 2. 強制套用你的字型 */
         .zhuyin-box { 
             font-family: 'WilsonZhuyinFont', serif !important; 
             font-size: 110px; 
@@ -58,79 +56,15 @@
             </div>
         </div>
 
-        <div class="footer">Author: Wilson</div>
+        <div class="footer">作者 Wilson Chang</div>
     </div>
 
     <script>
         let writer = null;
 
-        // 讀音功能
         function playVoice() {
             const char = document.getElementById('charInput').value;
             if (!char) return;
             window.speechSynthesis.cancel();
             const msg = new SpeechSynthesisUtterance(char);
             msg.lang = 'zh-TW';
-            window.speechSynthesis.speak(msg);
-        }
-
-        // 完成音效
-        function playSuccessTone() {
-            const context = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = context.createOscillator();
-            const gain = context.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(523.25, context.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(1046.50, context.currentTime + 0.1);
-            gain.gain.setValueAtTime(0.2, context.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.4);
-            osc.connect(gain);
-            gain.connect(context.destination);
-            osc.start();
-            osc.stop(context.currentTime + 0.4);
-        }
-
-        function handleSearch() {
-            const char = document.getElementById('charInput').value.trim();
-            if (!char) return;
-
-            document.getElementById('result-area').style.display = 'block';
-            document.getElementById('zhuyinDisplay').innerText = char;
-            document.getElementById('character-target').innerHTML = '';
-
-            writer = HanziWriter.create('character-target', char, {
-                width: 250,
-                height: 250,
-                padding: 10,
-                showOutline: true,
-                strokeColor: '#333',
-                charDataLoader: function(charToLoad, onComplete) {
-                    fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data-traditional@2/${encodeURIComponent(charToLoad)}.json`)
-                        .then(res => res.json())
-                        .then(onComplete)
-                        .catch(() => {
-                            fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data@2/${encodeURIComponent(charToLoad)}.json`)
-                                .then(res => res.json())
-                                .then(onComplete);
-                        });
-                }
-            });
-            writer.animateCharacter();
-            playVoice();
-        }
-
-        function replay() { if (writer) writer.animateCharacter(); }
-
-        function startQuiz() {
-            if (writer) {
-                writer.quiz({
-                    onComplete: function() {
-                        playSuccessTone();
-                        alert("太棒了！練習完成！");
-                    }
-                });
-            }
-        }
-    </script>
-</body>
-</html>
