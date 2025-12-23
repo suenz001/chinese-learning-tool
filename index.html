@@ -5,63 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>繁體中文 AI 學習工具 - Author: Wilson</title>
     
-    <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/buttaiwan/bpmfvs@v1.200/dist/all.css">
     
-    <script src="https://unpkg.com/pinyin-pro"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
 
     <style>
-        body { 
-            font-family: "Microsoft JhengHei", sans-serif; 
-            background-color: #f5f7fa; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            padding: 20px;
-            color: #333;
-        }
-        .container { 
-            background: white; 
-            padding: 30px; 
-            border-radius: 20px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08); 
-            text-align: center; 
-            max-width: 400px; 
-            width: 100%; 
-        }
-        h1 { color: #2c3e50; margin-bottom: 20px; font-size: 22px; }
+        body { font-family: sans-serif; background-color: #fdfbf7; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
         
-        /* 注音顯示樣式：仿照 bpmfvs 的風格 */
-        .zhuyin-area {
-            margin: 20px 0;
+        /* 使用 buttaiwan 的字型顯示注音 */
+        .zhuyin-font { 
+            font-family: "BpmfGenSenRounded-R", serif; 
+            font-size: 110px; 
+            color: #d97706; 
+            margin: 10px 0;
             cursor: pointer;
-            transition: transform 0.2s;
-        }
-        .zhuyin-text { 
-            font-size: 64px; 
-            color: #e67e22; 
-            font-weight: bold;
-            letter-spacing: 5px;
-            font-family: "標楷體", "BiauKai", serif;
-        }
-        
-        #character-target { 
-            width: 250px; 
-            height: 250px; 
-            border: 2px solid #edf2f7; 
-            background: #fff;
-            margin: 0 auto;
-            border-radius: 10px;
+            line-height: 1.2;
         }
 
-        .input-group { margin-bottom: 25px; display: flex; justify-content: center; gap: 10px; }
-        input { font-size: 24px; padding: 10px; width: 80px; text-align: center; border: 2px solid #cbd5e0; border-radius: 12px; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #3182ce; color: white; border: none; border-radius: 12px; font-weight: bold; }
-        
-        .controls { display: flex; gap: 10px; margin-top: 20px; }
-        .btn-quiz { background: #38a169; flex: 1; }
-        .btn-replay { background: #718096; flex: 1; }
-
-        .footer { margin-top: 40px; color: #a0aec0; font-size: 14px; font-weight: bold; }
+        #character-target { width: 250px; height: 250px; border: 1px solid #eee; margin: 20px auto; background: #fff; }
+        .input-group { margin-bottom: 20px; }
+        input { font-size: 24px; padding: 10px; width: 60px; text-align: center; border: 2px solid #ddd; border-radius: 10px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #4a7c59; color: white; border: none; border-radius: 10px; font-weight: bold; }
+        .controls { display: flex; gap: 10px; justify-content: center; }
+        .footer { margin-top: 40px; color: #94a3b8; font-size: 14px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -71,20 +38,17 @@
         
         <div class="input-group">
             <input type="text" id="charInput" maxlength="1" placeholder="字">
-            <button onclick="startLearning()">開始學習</button>
+            <button onclick="handleSearch()">開始學習</button>
         </div>
         
         <div id="result-area" style="display:none;">
-            <div class="zhuyin-area" onclick="playVoice()">
-                <div id="zhuyinDisplay" class="zhuyin-text"></div>
-                <div style="font-size:12px; color:#a0aec0;">點擊聽發音</div>
-            </div>
-
+            <div id="zhuyinDisplay" class="zhuyin-font" onclick="playVoice()"></div>
+            
             <div id="character-target"></div>
             
             <div class="controls">
-                <button class="btn-replay" onclick="writer.animateCharacter()">重播動畫</button>
-                <button id="quizBtn" class="btn-quiz" onclick="toggleQuiz()">手寫測驗</button>
+                <button style="background:#64748b;" onclick="replay()">重播</button>
+                <button id="quizBtn" style="background:#059669;" onclick="startQuiz()">手寫測驗</button>
             </div>
         </div>
 
@@ -93,40 +57,64 @@
 
     <script>
         let writer = null;
-        let isQuiz = false;
 
+        // 語音朗讀
         function playVoice() {
             const char = document.getElementById('charInput').value;
+            if (!char) return;
             window.speechSynthesis.cancel();
             const msg = new SpeechSynthesisUtterance(char);
             msg.lang = 'zh-TW';
             window.speechSynthesis.speak(msg);
         }
 
-        async function startLearning() {
+        // 重播動畫
+        function replay() {
+            if (writer) writer.animateCharacter();
+        }
+
+        // 手寫測驗
+        function startQuiz() {
+            if (writer) writer.quiz();
+        }
+
+        // 主搜尋邏輯
+        function handleSearch() {
             const char = document.getElementById('charInput').value.trim();
-            if (!char || !/[\u4e00-\u9fa5]/.test(char)) return;
+            if (!char) return;
 
-            const resultArea = document.getElementById('result-area');
-            const target = document.getElementById('character-target');
-            const zhuyinDisplay = document.getElementById('zhuyinDisplay');
+            // 1. 顯示區域
+            document.getElementById('result-area').style.display = 'block';
+            document.getElementById('zhuyinDisplay').innerText = char;
+            document.getElementById('character-target').innerHTML = '';
 
-            // 1. 顯示注音 (使用穩定庫轉換)
+            // 2. 啟動筆畫動畫
             try {
-                const zhuyin = pinyinPro.pinyin(char, { type: 'zhuyin' });
-                zhuyinDisplay.innerText = zhuyin;
-            } catch (e) {
-                console.error("注音讀取錯誤");
+                writer = HanziWriter.create('character-target', char, {
+                    width: 250,
+                    height: 250,
+                    padding: 10,
+                    showOutline: true,
+                    strokeColor: '#333',
+                    // 設定資料來源
+                    charDataLoader: function(charToLoad, onComplete) {
+                        fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data-traditional@2/${encodeURIComponent(charToLoad)}.json`)
+                            .then(res => res.json())
+                            .then(onComplete)
+                            .catch(() => {
+                                // 備援路徑
+                                fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data@2/${encodeURIComponent(charToLoad)}.json`)
+                                    .then(res => res.json())
+                                    .then(onComplete);
+                            });
+                    }
+                });
+                writer.animateCharacter();
+                playVoice();
+            } catch (err) {
+                console.error("筆畫載入失敗", err);
             }
-
-            // 2. 顯示結果區域
-            resultArea.style.display = 'block';
-            target.innerHTML = ''; 
-            isQuiz = false;
-            document.getElementById('quizBtn').innerText = "手寫測驗";
-
-            // 3. 載入筆畫動畫 (Hanzi Writer)
-            writer = HanziWriter.create('character-target', char, {
-                width: 250,
-                height: 250,
-                padding
+        }
+    </script>
+</body>
+</html>
