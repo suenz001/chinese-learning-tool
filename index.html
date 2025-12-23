@@ -9,94 +9,120 @@
 
     <style>
         body { font-family: "Microsoft JhengHei", sans-serif; background-color: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .container { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
-        h1 { color: #2c3e50; font-size: 24px; }
+        .container { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; max-width: 450px; width: 100%; }
         .input-group { margin: 20px 0; display: flex; justify-content: center; gap: 10px; }
         input { font-size: 20px; padding: 10px; width: 80px; text-align: center; border: 2px solid #ddd; border-radius: 10px; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 10px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 10px; transition: 0.2s; }
+        button:hover { background: #2980b9; }
         #result-area { display: none; flex-direction: column; align-items: center; margin-top: 20px; }
-        .zhuyin { font-size: 40px; color: #e67e22; font-weight: bold; margin-bottom: 15px; }
-        #character-target { width: 250px; height: 250px; border: 1px solid #eee; background: #fff; }
-        .error { color: #e74c3c; font-weight: bold; margin-top: 10px; display: none; }
-        .loading { color: #3498db; display: none; margin-top: 10px; }
+        .zhuyin { font-size: 44px; color: #e67e22; font-weight: bold; margin-bottom: 10px; }
+        #character-target { width: 300px; height: 300px; border: 2px solid #f9f9f9; background: #fff; border-radius: 10px; }
+        .error { color: #e74c3c; font-weight: bold; margin-top: 15px; display: none; padding: 10px; background: #fdf2f2; border-radius: 8px; }
+        .loading { color: #3498db; display: none; margin-top: 15px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h1>繁體中文筆畫學習</h1>
+        <p style="color: #666; font-size: 14px;">請輸入單個繁體中文字並點擊開始</p>
+        
         <div class="input-group">
-            <input type="text" id="charInput" maxlength="1" placeholder="輸入字">
+            <input type="text" id="charInput" maxlength="1" placeholder="字">
             <button onclick="queryCharacter()">開始學習</button>
         </div>
         
-        <div id="loading" class="loading">正在載入筆畫資料...</div>
+        <div id="loading" class="loading">正在搜尋資料庫...</div>
         <div id="errorMsg" class="error"></div>
 
         <div id="result-area">
             <div id="zhuyinDisplay" class="zhuyin"></div>
             <div id="character-target"></div>
-            <button style="margin-top:15px; background:#95a5a6;" onclick="writer.animateCharacter()">重播動畫</button>
+            <div style="margin-top: 15px; display: flex; gap: 10px;">
+                <button style="background:#95a5a6;" onclick="writer.animateCharacter()">重播</button>
+                <button id="quizBtn" style="background:#2ecc71;" onclick="toggleQuiz()">手寫測驗</button>
+            </div>
         </div>
     </div>
 
     <script>
         let writer = null;
+        let isQuiz = false;
 
-        async function queryCharacter() {
+        function queryCharacter() {
             const char = document.getElementById('charInput').value.trim();
             const errorMsg = document.getElementById('errorMsg');
             const loading = document.getElementById('loading');
             const resultArea = document.getElementById('result-area');
             const target = document.getElementById('character-target');
 
-            // 隱藏之前的內容
+            // 初始化狀態
             errorMsg.style.display = 'none';
             resultArea.style.display = 'none';
+            loading.style.display = 'block';
             target.innerHTML = '';
+            isQuiz = false;
+            document.getElementById('quizBtn').innerText = "手寫測驗";
 
             if (!char || !/[\u4e00-\u9fa5]/.test(char)) {
-                errorMsg.innerText = "請輸入一個中文字";
+                loading.style.display = 'none';
+                errorMsg.innerText = "請輸入一個有效的中文字";
                 errorMsg.style.display = 'block';
                 return;
             }
 
-            loading.style.display = 'block';
-
+            // 1. 取得注音 (pinyin-pro 庫)
             try {
-                // 1. 取得注音
                 const zhuyin = pinyinPro.pinyin(char, { type: 'zhuyin' });
                 document.getElementById('zhuyinDisplay').innerText = zhuyin;
-
-                // 2. 建立筆劃
-                writer = HanziWriter.create('character-target', char, {
-                    width: 250,
-                    height: 250,
-                    padding: 5,
-                    showOutline: true,
-                    charDataLoader: async function(charToLoad, onComplete) {
-                        try {
-                            const response = await fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data-traditional@2.0.1/${encodeURIComponent(charToLoad)}.json`);
-                            if (!response.ok) throw new Error("資料庫找不到這個字");
-                            const data = await response.json();
-                            onComplete(data);
-                            
-                            // 資料載入成功後顯示區域
-                            loading.style.display = 'none';
-                            resultArea.style.display = 'flex';
-                            writer.animateCharacter();
-                        } catch (e) {
-                            loading.style.display = 'none';
-                            errorMsg.innerText = "讀取失敗：可能是瀏覽器安全性限制。請嘗試將檔案上傳到 GitHub 或使用伺服器開啟。";
-                            errorMsg.style.display = 'block';
-                        }
-                    }
-                });
-
             } catch (e) {
+                console.error("注音錯誤:", e);
+            }
+
+            // 2. 建立筆劃 (HanziWriter 庫)
+            // 使用官方穩定 CDN 路徑
+            writer = HanziWriter.create('character-target', char, {
+                width: 300,
+                height: 300,
+                padding: 10,
+                showOutline: true,
+                strokeColor: '#2c3e50',
+                charDataLoader: function(charToLoad, onComplete) {
+                    // 使用傳統繁體資料庫源
+                    fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data-traditional@2/${encodeURIComponent(charToLoad)}.json`)
+                        .then(res => {
+                            if (!res.ok) throw new Error("找不到該字");
+                            return res.json();
+                        })
+                        .then(onComplete)
+                        .catch(err => {
+                            loading.style.display = 'none';
+                            errorMsg.innerText = `讀取錯誤：目前無法取得「${char}」的繁體筆畫。請換個字試試或檢查網路。`;
+                            errorMsg.style.display = 'block';
+                        });
+                }
+            });
+
+            // 監聽載入成功
+            writer.target.addEventListener('load', () => {
                 loading.style.display = 'none';
-                errorMsg.innerText = "發生未知錯誤。";
-                errorMsg.style.display = 'block';
+                resultArea.style.display = 'flex';
+                writer.animateCharacter();
+            });
+        }
+
+        function toggleQuiz() {
+            if (!writer) return;
+            const btn = document.getElementById('quizBtn');
+            if (!isQuiz) {
+                writer.quiz();
+                btn.innerText = "停止測驗";
+                isQuiz = true;
+            } else {
+                writer.cancelQuiz();
+                writer.animateCharacter();
+                btn.innerText = "手寫測驗";
+                isQuiz = false;
             }
         }
     </script>
