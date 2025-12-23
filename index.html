@@ -5,30 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>繁體中文 AI 學習工具 - Author: Wilson</title>
     
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/buttaiwan/bpmfvs@v1.200/dist/all.css">
-    
     <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/buttaiwan/bpmfvs@v1.200/dist/all.css">
 
     <style>
         body { font-family: sans-serif; background-color: #fdfbf7; display: flex; flex-direction: column; align-items: center; padding: 20px; }
         .container { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
         
-        /* 使用 buttaiwan 的字型顯示注音 */
+        /* 注音顯示：套用 BpmfGenSenRounded 字型 */
         .zhuyin-font { 
-            font-family: "BpmfGenSenRounded-R", serif; 
-            font-size: 110px; 
+            font-family: "BpmfGenSenRounded-R", "BpmfGenSenRounded", serif; 
+            font-size: 100px; 
             color: #d97706; 
             margin: 10px 0;
             cursor: pointer;
             line-height: 1.2;
+            min-height: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        #character-target { width: 250px; height: 250px; border: 1px solid #eee; margin: 20px auto; background: #fff; }
+        #character-target { width: 250px; height: 250px; border: 2px solid #eee; margin: 20px auto; background: #fff; border-radius: 10px; }
         .input-group { margin-bottom: 20px; }
         input { font-size: 24px; padding: 10px; width: 60px; text-align: center; border: 2px solid #ddd; border-radius: 10px; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #4a7c59; color: white; border: none; border-radius: 10px; font-weight: bold; }
-        .controls { display: flex; gap: 10px; justify-content: center; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #4a7c59; color: white; border: none; border-radius: 10px; font-weight: bold; margin: 5px; }
         .footer { margin-top: 40px; color: #94a3b8; font-size: 14px; font-weight: bold; }
+        .hint { font-size: 12px; color: #aaa; margin-top: -10px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -43,11 +47,12 @@
         
         <div id="result-area" style="display:none;">
             <div id="zhuyinDisplay" class="zhuyin-font" onclick="playVoice()"></div>
+            <p class="hint">↑ 點擊字體聽讀音 ↑</p>
             
             <div id="character-target"></div>
             
-            <div class="controls">
-                <button style="background:#64748b;" onclick="replay()">重播</button>
+            <div style="display: flex; justify-content: center; gap: 10px;">
+                <button style="background:#64748b;" onclick="replay()">重播動畫</button>
                 <button id="quizBtn" style="background:#059669;" onclick="startQuiz()">手寫測驗</button>
             </div>
         </div>
@@ -58,61 +63,81 @@
     <script>
         let writer = null;
 
-        // 語音朗讀
+        // 播放讀音功能
         function playVoice() {
             const char = document.getElementById('charInput').value;
             if (!char) return;
             window.speechSynthesis.cancel();
             const msg = new SpeechSynthesisUtterance(char);
             msg.lang = 'zh-TW';
+            msg.rate = 0.8;
             window.speechSynthesis.speak(msg);
         }
 
-        // 重播動畫
-        function replay() {
-            if (writer) writer.animateCharacter();
+        // 播放「完成」效果音 (叮一聲)
+        function playSuccessSound() {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 音
+            oscillator.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.1); // 升到 E6
+            
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.5);
         }
 
-        // 手寫測驗
-        function startQuiz() {
-            if (writer) writer.quiz();
-        }
-
-        // 主搜尋邏輯
         function handleSearch() {
             const char = document.getElementById('charInput').value.trim();
             if (!char) return;
 
-            // 1. 顯示區域
             document.getElementById('result-area').style.display = 'block';
             document.getElementById('zhuyinDisplay').innerText = char;
             document.getElementById('character-target').innerHTML = '';
 
-            // 2. 啟動筆畫動畫
-            try {
-                writer = HanziWriter.create('character-target', char, {
-                    width: 250,
-                    height: 250,
-                    padding: 10,
-                    showOutline: true,
-                    strokeColor: '#333',
-                    // 設定資料來源
-                    charDataLoader: function(charToLoad, onComplete) {
-                        fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data-traditional@2/${encodeURIComponent(charToLoad)}.json`)
-                            .then(res => res.json())
-                            .then(onComplete)
-                            .catch(() => {
-                                // 備援路徑
-                                fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data@2/${encodeURIComponent(charToLoad)}.json`)
-                                    .then(res => res.json())
-                                    .then(onComplete);
-                            });
+            writer = HanziWriter.create('character-target', char, {
+                width: 250,
+                height: 250,
+                padding: 10,
+                showOutline: true,
+                strokeColor: '#333',
+                charDataLoader: function(charToLoad, onComplete) {
+                    fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data-traditional@2/${encodeURIComponent(charToLoad)}.json`)
+                        .then(res => res.json())
+                        .then(onComplete)
+                        .catch(() => {
+                            fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data@2/${encodeURIComponent(charToLoad)}.json`)
+                                .then(res => res.json())
+                                .then(onComplete);
+                        });
+                }
+            });
+            writer.animateCharacter();
+            playVoice(); // 搜尋時也自動讀音一次
+        }
+
+        function replay() {
+            if (writer) writer.animateCharacter();
+        }
+
+        function startQuiz() {
+            if (writer) {
+                writer.quiz({
+                    onComplete: function(summary) {
+                        // 手寫完成時播放效果音
+                        playSuccessSound();
+                        setTimeout(() => {
+                            alert("太棒了！你完成了「" + summary.character + "」的練習！");
+                        }, 200);
                     }
                 });
-                writer.animateCharacter();
-                playVoice();
-            } catch (err) {
-                console.error("筆畫載入失敗", err);
             }
         }
     </script>
