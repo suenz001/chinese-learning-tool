@@ -3,44 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>繁體中文筆畫學習 AI 工具</title>
-    <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
+    <title>繁體中文筆畫學習工具</title>
+    <script src="https://unpkg.com/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
     <script src="https://unpkg.com/pinyin-pro/dist/index.js"></script>
 
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; background-color: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .container { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; max-width: 450px; width: 100%; }
-        .input-group { margin: 20px 0; display: flex; justify-content: center; gap: 10px; }
-        input { font-size: 20px; padding: 10px; width: 80px; text-align: center; border: 2px solid #ddd; border-radius: 10px; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 10px; transition: 0.2s; }
+        body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; background-color: #f0f4f8; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
+        .input-group { margin: 20px 0; display: flex; justify-content: center; gap: 8px; }
+        input { font-size: 20px; padding: 12px; width: 80px; text-align: center; border: 2px solid #ddd; border-radius: 10px; outline: none; }
+        input:focus { border-color: #3498db; }
+        button { padding: 12px 20px; font-size: 16px; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 10px; transition: 0.3s; }
         button:hover { background: #2980b9; }
         #result-area { display: none; flex-direction: column; align-items: center; margin-top: 20px; }
-        .zhuyin { font-size: 44px; color: #e67e22; font-weight: bold; margin-bottom: 10px; }
-        #character-target { width: 300px; height: 300px; border: 2px solid #f9f9f9; background: #fff; border-radius: 10px; }
-        .error { color: #e74c3c; font-weight: bold; margin-top: 15px; display: none; padding: 10px; background: #fdf2f2; border-radius: 8px; }
-        .loading { color: #3498db; display: none; margin-top: 15px; font-weight: bold; }
+        .zhuyin { font-size: 40px; color: #d35400; font-weight: bold; margin-bottom: 10px; }
+        #character-target { width: 250px; height: 250px; border: 1px solid #eee; background: #fff; border-radius: 8px; }
+        .status-msg { margin-top: 15px; font-weight: bold; }
+        .error { color: #e74c3c; }
+        .loading { color: #3498db; }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h1>繁體中文筆畫學習</h1>
-        <p style="color: #666; font-size: 14px;">請輸入單個繁體中文字並點擊開始</p>
-        
         <div class="input-group">
             <input type="text" id="charInput" maxlength="1" placeholder="字">
             <button onclick="queryCharacter()">開始學習</button>
         </div>
         
-        <div id="loading" class="loading">正在搜尋資料庫...</div>
-        <div id="errorMsg" class="error"></div>
+        <div id="statusMsg" class="status-msg"></div>
 
         <div id="result-area">
             <div id="zhuyinDisplay" class="zhuyin"></div>
             <div id="character-target"></div>
             <div style="margin-top: 15px; display: flex; gap: 10px;">
-                <button style="background:#95a5a6;" onclick="writer.animateCharacter()">重播</button>
-                <button id="quizBtn" style="background:#2ecc71;" onclick="toggleQuiz()">手寫測驗</button>
+                <button style="background:#7f8c8d;" onclick="writer.animateCharacter()">重播動畫</button>
+                <button id="quizBtn" style="background:#27ae60;" onclick="toggleQuiz()">手寫測驗</button>
             </div>
         </div>
     </div>
@@ -49,80 +48,80 @@
         let writer = null;
         let isQuiz = false;
 
-        function queryCharacter() {
+        async function queryCharacter() {
             const char = document.getElementById('charInput').value.trim();
-            const errorMsg = document.getElementById('errorMsg');
-            const loading = document.getElementById('loading');
+            const statusMsg = document.getElementById('statusMsg');
             const resultArea = document.getElementById('result-area');
             const target = document.getElementById('character-target');
 
-            // 初始化狀態
-            errorMsg.style.display = 'none';
-            resultArea.style.display = 'none';
-            loading.style.display = 'block';
-            target.innerHTML = '';
-            isQuiz = false;
-            document.getElementById('quizBtn').innerText = "手寫測驗";
-
             if (!char || !/[\u4e00-\u9fa5]/.test(char)) {
-                loading.style.display = 'none';
-                errorMsg.innerText = "請輸入一個有效的中文字";
-                errorMsg.style.display = 'block';
+                statusMsg.className = "status-msg error";
+                statusMsg.innerText = "請輸入一個中文字";
                 return;
             }
 
-            // 1. 取得注音 (pinyin-pro 庫)
+            // 初始化
+            statusMsg.className = "status-msg loading";
+            statusMsg.innerText = "正在連線資料庫...";
+            statusMsg.style.display = "block";
+            resultArea.style.display = "none";
+            target.innerHTML = '';
+            isQuiz = false;
+
+            // 1. 取得注音
             try {
                 const zhuyin = pinyinPro.pinyin(char, { type: 'zhuyin' });
                 document.getElementById('zhuyinDisplay').innerText = zhuyin;
+            } catch (e) { console.error(e); }
+
+            // 2. 載入筆畫 (嘗試多個來源)
+            const traditionalUrl = (c) => `https://cdn.jsdelivr.net/npm/hanzi-writer-data-traditional@2.0.1/${encodeURIComponent(c)}.json`;
+            const standardUrl = (c) => `https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0.1/${encodeURIComponent(c)}.json`;
+
+            try {
+                writer = HanziWriter.create('character-target', char, {
+                    width: 250,
+                    height: 250,
+                    padding: 5,
+                    showOutline: true,
+                    strokeColor: '#2c3e50',
+                    // 嘗試從繁體庫載入，若失敗則報錯
+                    charDataLoader: async function(charToLoad, onComplete) {
+                        try {
+                            let response = await fetch(traditionalUrl(charToLoad));
+                            if (!response.ok) {
+                                console.log("繁體庫未找到，嘗試標準庫...");
+                                response = await fetch(standardUrl(charToLoad));
+                            }
+                            if (!response.ok) throw new Error("來源皆失效");
+                            const data = await response.json();
+                            onComplete(data);
+                            
+                            // 成功後顯示
+                            statusMsg.style.display = "none";
+                            resultArea.style.display = "flex";
+                            writer.animateCharacter();
+                        } catch (err) {
+                            statusMsg.className = "status-msg error";
+                            statusMsg.innerText = "讀取失敗。請檢查您的網路是否能連線到 jsdelivr CDN。";
+                        }
+                    }
+                });
             } catch (e) {
-                console.error("注音錯誤:", e);
+                statusMsg.innerText = "啟動失敗。";
             }
-
-            // 2. 建立筆劃 (HanziWriter 庫)
-            // 使用官方穩定 CDN 路徑
-            writer = HanziWriter.create('character-target', char, {
-                width: 300,
-                height: 300,
-                padding: 10,
-                showOutline: true,
-                strokeColor: '#2c3e50',
-                charDataLoader: function(charToLoad, onComplete) {
-                    // 使用傳統繁體資料庫源
-                    fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data-traditional@2/${encodeURIComponent(charToLoad)}.json`)
-                        .then(res => {
-                            if (!res.ok) throw new Error("找不到該字");
-                            return res.json();
-                        })
-                        .then(onComplete)
-                        .catch(err => {
-                            loading.style.display = 'none';
-                            errorMsg.innerText = `讀取錯誤：目前無法取得「${char}」的繁體筆畫。請換個字試試或檢查網路。`;
-                            errorMsg.style.display = 'block';
-                        });
-                }
-            });
-
-            // 監聽載入成功
-            writer.target.addEventListener('load', () => {
-                loading.style.display = 'none';
-                resultArea.style.display = 'flex';
-                writer.animateCharacter();
-            });
         }
 
         function toggleQuiz() {
             if (!writer) return;
-            const btn = document.getElementById('quizBtn');
-            if (!isQuiz) {
+            isQuiz = !isQuiz;
+            if (isQuiz) {
                 writer.quiz();
-                btn.innerText = "停止測驗";
-                isQuiz = true;
+                document.getElementById('quizBtn').innerText = "停止測驗";
             } else {
                 writer.cancelQuiz();
                 writer.animateCharacter();
-                btn.innerText = "手寫測驗";
-                isQuiz = false;
+                document.getElementById('quizBtn').innerText = "手寫測驗";
             }
         }
     </script>
