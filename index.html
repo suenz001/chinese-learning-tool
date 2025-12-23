@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>繁體中文 AI 學習工具 - 作者 Wilson Chang</title>
     
+    <link rel="preload" href="./BpmfZihiKaiStd-Regular.ttf" as="font" type="font/ttf" crossorigin>
     <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
-<link rel="preload" href="./BpmfZihiKaiStd-Regular.ttf" as="font" type="font/ttf" crossorigin>
+
     <style>
         @font-face {
             font-family: 'WilsonZhuyinFont';
@@ -25,12 +26,37 @@
             cursor: pointer;
             line-height: 1.2;
             min-height: 130px;
+            transition: transform 0.2s;
         }
 
-        #character-target { width: 250px; height: 250px; border: 2px solid #eee; margin: 20px auto; background: #fff; border-radius: 10px; }
+        /* 成功時的跳動動畫 */
+        @keyframes success-bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .success-animation { animation: success-bounce 0.5s ease; }
+
+        #character-target { 
+            width: 250px; 
+            height: 250px; 
+            border: 2px solid #eee; 
+            margin: 20px auto; 
+            background: #fff; 
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+
+        /* 成功時的閃爍光芒 */
+        .flash-success {
+            border-color: #4ade80 !important;
+            box-shadow: 0 0 20px rgba(74, 222, 128, 0.5);
+            background-color: #f0fdf4 !important;
+        }
+
         .input-group { margin-bottom: 20px; }
         input { font-size: 24px; padding: 10px; width: 60px; text-align: center; border: 2px solid #ddd; border-radius: 10px; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #4a7c59; color: white; border: none; border-radius: 10px; font-weight: bold; margin: 5px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #4a7c59; color: white; border: none; border-radius: 10px; font-weight: bold; margin: 5px; transition: 0.2s; }
+        button:active { transform: translateY(2px); }
         .footer { margin-top: 40px; color: #94a3b8; font-size: 14px; font-weight: bold; }
     </style>
 </head>
@@ -51,7 +77,7 @@
             <div id="character-target"></div>
             
             <div style="display: flex; justify-content: center; gap: 10px;">
-                <button style="background:#64748b;" onclick="replay()">重播動畫</button>
+                <button style="background:#64748b;" onclick="replay()">重播筆畫</button>
                 <button id="quizBtn" style="background:#059669;" onclick="startQuiz()">手寫測驗</button>
             </div>
         </div>
@@ -71,21 +97,28 @@
             window.speechSynthesis.speak(msg);
         }
 
+        // 強化版成功音效：和弦響鈴聲
         function playSuccessTone() {
             try {
                 var context = new (window.AudioContext || window.webkitAudioContext)();
-                var osc = context.createOscillator();
-                var gain = context.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(523.25, context.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(1046.50, context.currentTime + 0.1);
-                gain.gain.setValueAtTime(0.2, context.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.4);
-                osc.connect(gain);
-                gain.connect(context.destination);
-                osc.start();
-                osc.stop(context.currentTime + 0.4);
-            } catch (e) { console.log("音效播放失敗"); }
+                
+                function playNote(freq, startTime, duration) {
+                    var osc = context.createOscillator();
+                    var gain = context.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, startTime);
+                    gain.gain.setValueAtTime(0.4, startTime); // 音量加大
+                    gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+                    osc.connect(gain);
+                    gain.connect(context.destination);
+                    osc.start(startTime);
+                    osc.stop(startTime + duration);
+                }
+
+                // 播放叮-叮兩聲
+                playNote(659.25, context.currentTime, 0.3); // E5
+                playNote(880.00, context.currentTime + 0.1, 0.5); // A5
+            } catch (e) { console.log("音效失敗"); }
         }
 
         function handleSearch() {
@@ -95,6 +128,9 @@
             document.getElementById('result-area').style.display = 'block';
             document.getElementById('zhuyinDisplay').innerText = char;
             document.getElementById('character-target').innerHTML = '';
+            // 重設樣式
+            document.getElementById('character-target').className = '';
+            document.getElementById('zhuyinDisplay').classList.remove('success-animation');
 
             writer = HanziWriter.create('character-target', char, {
                 width: 250,
@@ -123,7 +159,21 @@
             if (writer) {
                 writer.quiz({
                     onComplete: function() {
+                        // 播放成功音效
                         playSuccessTone();
+                        
+                        // 視覺回饋：閃爍綠光 + 字體跳動
+                        var target = document.getElementById('character-target');
+                        var zhuyin = document.getElementById('zhuyinDisplay');
+                        
+                        target.classList.add('flash-success');
+                        zhuyin.classList.add('success-animation');
+                        
+                        // 1.5秒後移除動畫類別以便下次使用
+                        setTimeout(function() {
+                            target.classList.remove('flash-success');
+                            zhuyin.classList.remove('success-animation');
+                        }, 1500);
                     }
                 });
             }
@@ -131,4 +181,3 @@
     </script>
 </body>
 </html>
-
