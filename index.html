@@ -3,81 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>繁體中文筆畫學習工具</title>
+    <title>繁體中文筆畫學習 & 教育部辭典</title>
     <script src="https://unpkg.com/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
-    <script src="https://unpkg.com/pinyin-pro@3.18.3/dist/index.js"></script>
 
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; background-color: #f8f9fa; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        .container { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; max-width: 420px; width: 100%; }
-        h1 { color: #2c3e50; font-size: 24px; margin-bottom: 5px; }
-        .input-group { margin: 20px 0; display: flex; justify-content: center; gap: 8px; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background-color: #fcfaf2; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; max-width: 450px; width: 100%; }
+        h1 { color: #2c3e50; font-size: 24px; margin-bottom: 20px; }
+        .input-group { margin-bottom: 20px; display: flex; justify-content: center; gap: 8px; }
         input { font-size: 22px; padding: 12px; width: 80px; text-align: center; border: 2px solid #eee; border-radius: 12px; outline: none; }
         button { padding: 12px 20px; font-size: 16px; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 12px; font-weight: bold; }
+        
         #result-area { display: none; flex-direction: column; align-items: center; margin-top: 10px; }
+        #character-target { width: 250px; height: 250px; border: 2px solid #f1f1f1; background: #fff; border-radius: 12px; }
         
-        /* 注音符號樣式 */
-        .zhuyin { 
-            font-size: 52px; 
-            color: #e67e22; 
-            font-weight: bold; 
-            margin-bottom: 10px; 
-            cursor: pointer; 
-            font-family: "BiauKai", "標楷體", serif; 
-            min-height: 60px;
-        }
+        .controls { display: flex; gap: 10px; margin: 20px 0; }
+        .btn-dict { background: #e67e22; width: 100%; margin-top: 10px; text-decoration: none; display: inline-block; line-height: 40px; height: 40px; }
+        .btn-dict:hover { background: #d35400; }
         
-        #character-target { width: 250px; height: 250px; border: 1px solid #eee; background: #fff; border-radius: 12px; }
-        .status-msg { margin-top: 15px; font-weight: bold; font-size: 14px; min-height: 20px; }
+        .status-msg { margin-top: 15px; font-weight: bold; font-size: 14px; }
         .loading { color: #3498db; }
         .error { color: #e74c3c; }
-        .controls { display: flex; gap: 10px; margin-top: 20px; }
-        .hint { font-size: 12px; color: #999; margin-bottom: 5px; }
+        .info-box { background: #fdf2e9; padding: 15px; border-radius: 12px; margin-top: 20px; font-size: 14px; color: #7f8c8d; text-align: left; line-height: 1.6; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>繁體中文筆畫學習</h1>
+        <h1>繁體中文筆畫 AI 學習</h1>
         <div class="input-group">
             <input type="text" id="charInput" maxlength="1" placeholder="字">
-            <button onclick="queryCharacter()">搜尋</button>
+            <button onclick="queryCharacter()">開始練習</button>
         </div>
         
         <div id="statusMsg" class="status-msg"></div>
 
         <div id="result-area">
-            <p class="hint">點擊注音聽發音</p>
-            <div id="zhuyinDisplay" class="zhuyin" onclick="speakText()"></div>
             <div id="character-target"></div>
+            
             <div class="controls">
                 <button style="background:#7f8c8d;" onclick="writer.animateCharacter()">重播</button>
                 <button id="quizBtn" style="background:#27ae60;" onclick="toggleQuiz()">手寫測驗</button>
             </div>
+
+            <div class="info-box">
+                <strong>💡 學習重點：</strong><br>
+                1. 觀看上方 AI 模擬筆順動畫。<br>
+                2. 點擊「手寫測驗」在方格內練習。<br>
+                3. 點擊下方按鈕查看<strong>注音、解釋、造詞例句</strong>。
+            </div>
+
+            <a id="moeLink" href="#" target="_blank" class="button btn-dict" style="border-radius:12px; color:white; font-weight:bold;">前往教育部辭典查看「字」</a>
         </div>
     </div>
 
     <script>
         let writer = null;
         let isQuiz = false;
-        let currentChar = "";
-
-        // 語音朗讀
-        function speakText() {
-            if (!currentChar) return;
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(currentChar);
-            utterance.lang = 'zh-TW';
-            utterance.rate = 0.7;
-            window.speechSynthesis.speak(utterance);
-        }
 
         async function queryCharacter() {
             const char = document.getElementById('charInput').value.trim();
             const statusMsg = document.getElementById('statusMsg');
             const resultArea = document.getElementById('result-area');
             const target = document.getElementById('character-target');
-            const zhuyinBox = document.getElementById('zhuyinDisplay');
+            const moeLink = document.getElementById('moeLink');
 
             if (!char || !/[\u4e00-\u9fa5]/.test(char)) {
                 statusMsg.className = "status-msg error";
@@ -85,28 +74,24 @@
                 return;
             }
 
-            currentChar = char;
+            // 更新教育部辭典連結
+            // 教育部簡編本搜尋 URL 格式
+            moeLink.href = `https://dict.mini.moe.edu.tw/cgi-bin/gdic/gsweb.cgi?o=ddictionary&search_field=hw&search_word=${encodeURIComponent(char)}`;
+            moeLink.innerText = `查看「${char}」的注音、造詞與例句`;
+
             statusMsg.className = "status-msg loading";
-            statusMsg.innerText = "正在載入...";
+            statusMsg.innerText = "AI 正在準備資料...";
             statusMsg.style.display = "block";
             resultArea.style.display = "none";
             target.innerHTML = '';
 
-            // --- 修正後的注音獲取邏輯 ---
-            try {
-                // 使用 pinyinPro 全域物件獲取注音
-                if (window.pinyinPro) {
-                    const zy = window.pinyinPro.pinyin(char, { type: 'zhuyin' });
-                    zhuyinBox.innerText = zy;
-                } else {
-                    zhuyinBox.innerText = "載入中...";
-                }
-            } catch (e) {
-                console.error("注音解析錯誤:", e);
-                zhuyinBox.innerText = "";
-            }
+            // 語音朗讀
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(char);
+            utterance.lang = 'zh-TW';
+            window.speechSynthesis.speak(utterance);
 
-            // 建立筆畫動畫
+            // 建立筆畫
             writer = HanziWriter.create('character-target', char, {
                 width: 250,
                 height: 250,
@@ -114,12 +99,10 @@
                 showOutline: true,
                 strokeColor: '#2c3e50',
                 charDataLoader: async function(charToLoad, onComplete) {
-                    // 使用多重備援路徑
                     const urls = [
                         `https://cdn.jsdelivr.net/npm/hanzi-writer-data-traditional@2/${encodeURIComponent(charToLoad)}.json`,
                         `https://cdn.jsdelivr.net/npm/hanzi-writer-data@2/${encodeURIComponent(charToLoad)}.json`
                     ];
-
                     for (const url of urls) {
                         try {
                             const res = await fetch(url);
@@ -129,10 +112,9 @@
                                 statusMsg.style.display = "none";
                                 resultArea.style.display = "flex";
                                 writer.animateCharacter();
-                                speakText();
                                 return;
                             }
-                        } catch (e) { }
+                        } catch (e) {}
                     }
                     statusMsg.className = "status-msg error";
                     statusMsg.innerText = "找不到筆畫資料";
