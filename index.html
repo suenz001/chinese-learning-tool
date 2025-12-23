@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>繁體中文筆畫學習 AI 工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
+    <script src="https://unpkg.com/pinyin-pro/dist/index.js"></script>
+
+    <style>
+        /* 網頁基本樣式設定 */
+        body {
+            font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #333;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .input-group {
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        input[type="text"] {
+            font-size: 24px;
+            padding: 10px;
+            width: 80px;
+            text-align: center;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+
+        button {
+            font-size: 18px;
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        button.secondary {
+            background-color: #95a5a6;
+        }
+        button.secondary:hover {
+            background-color: #7f8c8d;
+        }
+
+        #result-area {
+            display: none; /* 預設隱藏，有結果才顯示 */
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .zhuyin-display {
+            font-size: 36px;
+            color: #e74c3c;
+            font-weight: bold;
+            margin-bottom: 15px;
+            font-family: "BiauKai", "標楷體", serif; /* 注音用標楷體比較好看 */
+        }
+
+        /* 田字格容器 */
+        #character-target-div {
+            width: 300px;
+            height: 300px;
+            border: 1px solid #ccc;
+            /* HanziWriter 會自動產生田字格背景，這裡只需基本邊框 */
+            margin-bottom: 20px;
+            background-color: #fffbec; /* 微微的米黃色底，更有書法感 */
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .loading {
+            display: none;
+            color: #666;
+            margin-top: 20px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>繁體中文筆畫學習 AI 工具</h1>
+
+    <div class="container">
+        <div class="input-group">
+            <input type="text" id="charInput" maxlength="1" placeholder="輸入一字">
+            <button onclick="queryCharacter()">開始學習</button>
+        </div>
+        <div id="errorMsg" class="error-message">請輸入一個中文字</div>
+        <div id="loading" class="loading">正在載入筆畫資料...</div>
+
+        <div id="result-area">
+            <div id="zhuyinDisplay" class="zhuyin-display"></div>
+            
+            <div id="character-target-div"></div>
+
+            <div class="controls">
+                <button class="secondary" onclick="replayAnimation()">重新播放</button>
+                <button class="secondary" onclick="toggleQuizBtn()">筆順測驗模式</button>
+            </div>
+             <p style="font-size: 14px; color: #666; margin-top: 10px;">提示：在測驗模式下，請用滑鼠在田字格上跟著寫。</p>
+        </div>
+    </div>
+
+    <script>
+        // 初始化變數
+        let writer = null;
+        let isQuizMode = false;
+        const charInput = document.getElementById('charInput');
+        const resultArea = document.getElementById('result-area');
+        const errorMsg = document.getElementById('errorMsg');
+        const loadingDiv = document.getElementById('loading');
+        const zhuyinDisplay = document.getElementById('zhuyinDisplay');
+        const targetDiv = document.getElementById('character-target-div');
+        const quizBtn = document.querySelector('button[onclick="toggleQuizBtn()"]');
+
+        // 監聽 Enter 鍵
+        charInput.addEventListener('keypress', function(e) {
+            if(e.key === 'Enter') queryCharacter();
+        });
+
+        // 主要功能：查詢漢字
+        function queryCharacter() {
+            const char = charInput.value.trim();
+            
+            // 基本驗證：確保輸入的是一個漢字
+            // 使用正規表達式檢查是否為漢字範圍
+            if (char.length !== 1 || !/[\u4e00-\u9fa5]/.test(char)) {
+                showError("請輸入單一個中文字");
+                resultArea.style.display = 'none';
+                return;
+            }
+
+            // 清除錯誤訊息，顯示載入中
+            errorMsg.style.display = 'none';
+            loadingDiv.style.display = 'block';
+            resultArea.style.display = 'none';
+
+            // 1. 處理注音 (使用 pinyin-pro 庫)
+            // type: 'zhuyin' 指定輸出注音符號
+            // toneType: 'symbol' 指定聲調用符號表示
+            // nonZhuyin: false 確保只輸出注音
+            try {
+                const zhuyinResult = pinyinPro.pinyin(char, { 
+                    type: 'zhuyin', 
+                    toneType: 'symbol',
+                    nonZhuyin: false,
+                    v: true // 處理女(nv) -> ㄋㄩˇ 的特殊情況
+                });
+                zhuyinDisplay.textContent = zhuyinResult;
+            } catch (e) {
+                console.error("注音轉換失敗:", e);
+                zhuyinDisplay.textContent = "注音獲取失敗";
+            }
+
+            // 2. 處理筆順動畫 (使用 HanziWriter 庫)
+            // 如果之前已經有 writer 實體，先銷毀它，避免重複疊加
+            if (writer) {
+                targetDiv.innerHTML = ''; // 清空容器
+                writer = null;
+                isQuizMode = false;
+                quizBtn.textContent = "筆順測驗模式";
+            }
+
+            // 創建新的 HanziWriter 實體
+            writer = HanziWriter.create('character-target-div', char, {
+                width: 300,
+                height: 300,
+                padding: 5,
+                showOutline: true, // 顯示灰色底稿
+                strokeAnimationSpeed: 1, // 動畫速度 (1為標準)
+                delayBetweenStrokes: 200, // 筆畫間的延遲 (毫秒)
+                radicalColor: '#3498db', // 部首顏色 (可選)
+                // 關鍵設定：確保載入繁體資料
+                charDataLoader: function(char, onComplete) {
+                    // 從 HanziWriter 的 CDN 獲取繁體中文數據
+                    const url = 'https://cdn.jsdelivr.net/npm/hanzi-writer-data-traditional@2.0.1/' + char + '.json';
+                    fetch(url)
+                        .then(res => {
+                            if (!res.ok) throw new Error('Network response was not ok');
+                            return res.json();
+                        })
+                        .then(data => onComplete(data))
+                        .catch(err => {
+                             loadingDiv.style.display = 'none';
+                             showError("找不到這個字的筆畫資料，請確認輸入是否正確。");
+                             console.error('Error loading char data:', err);
+                        });
+                },
+                onLoadCharDataError: function(error) {
+                     loadingDiv.style.display = 'none';
+                     showError("載入筆畫資料失敗，請稍後再試。");
+                },
+                onLoadCharDataSuccess: function(data) {
+                    // 資料載入成功後執行
+                    loadingDiv.style.display = 'none';
+                    resultArea.style.display = 'flex';
+                    // 開始動畫
+                    writer.animateCharacter();
+                }
+            });
+        }
+
+        // 重新播放功能
+        function replayAnimation() {
+            if (writer && !isQuizMode) {
+                writer.animateCharacter();
+            } else if (isQuizMode) {
+                alert("請先退出測驗模式才能重新播放動畫。");
+            }
+        }
+
+        // 切換測驗模式功能
+        function toggleQuizBtn() {
+            if (!writer) return;
+
+            if (isQuizMode) {
+                // 退出測驗模式
+                writer.cancelQuiz();
+                // 重新顯示底稿
+                writer.showOutline();
+                quizBtn.textContent = "筆順測驗模式";
+                isQuizMode = false;
+                replayAnimation();
+            } else {
+                // 進入測驗模式
+                quizBtn.textContent = "退出測驗";
+                isQuizMode = true;
+                // 開始測驗，隱藏底稿讓用戶自己寫
+                writer.quiz({
+                    onMistake: function(strokeData) {
+                        console.log('寫錯了筆畫:', strokeData.strokeNum);
+                        // 可以在這裡加入錯誤提示音效
+                    },
+                    onCorrectStroke: function(strokeData) {
+                        console.log('寫對了第', strokeData.strokeNum, '筆');
+                    },
+                    onComplete: function(summaryData) {
+                        console.log('測驗完成!');
+                        alert('太棒了！你完成了「' + charInput.value + '」字的書寫測驗。總共寫錯 ' + summaryData.totalMistakes + ' 次。');
+                        toggleQuizBtn(); // 完成後自動退出測驗模式
+                    }
+                });
+            }
+        }
+
+        // 顯示錯誤訊息的輔助函式
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
