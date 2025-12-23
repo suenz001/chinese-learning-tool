@@ -3,64 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>繁體中文 AI 學習工具 - Wilson</title>
+    <title>繁體中文 AI 學習工具 - Author: Wilson</title>
     
     <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
     
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/buttaiwan/bpmfvs@v1.200/dist/all.css">
+    <script src="https://unpkg.com/pinyin-pro"></script>
 
     <style>
         body { 
             font-family: "Microsoft JhengHei", sans-serif; 
-            background-color: #fdfbf7; 
+            background-color: #f5f7fa; 
             display: flex; 
             flex-direction: column; 
             align-items: center; 
             padding: 20px;
+            color: #333;
         }
         .container { 
             background: white; 
             padding: 30px; 
             border-radius: 20px; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1); 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08); 
             text-align: center; 
             max-width: 400px; 
             width: 100%; 
         }
-        /* 套用注音字型：這裡是關鍵 */
-        .zhuyin-text { 
-            font-family: "BpmfGenSenRounded-R", serif; 
-            font-size: 100px; 
-            color: #d97706; 
+        h1 { color: #2c3e50; margin-bottom: 20px; font-size: 22px; }
+        
+        /* 注音顯示樣式：仿照 bpmfvs 的風格 */
+        .zhuyin-area {
             margin: 20px 0;
             cursor: pointer;
+            transition: transform 0.2s;
         }
+        .zhuyin-text { 
+            font-size: 64px; 
+            color: #e67e22; 
+            font-weight: bold;
+            letter-spacing: 5px;
+            font-family: "標楷體", "BiauKai", serif;
+        }
+        
         #character-target { 
             width: 250px; 
             height: 250px; 
-            border: 1px solid #eee; 
+            border: 2px solid #edf2f7; 
+            background: #fff;
             margin: 0 auto;
+            border-radius: 10px;
         }
-        .input-group { margin-bottom: 20px; }
-        input { font-size: 20px; padding: 10px; width: 60px; text-align: center; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #4a7c59; color: white; border: none; border-radius: 8px; }
-        .footer { margin-top: 30px; color: #94a3b8; font-size: 14px; }
+
+        .input-group { margin-bottom: 25px; display: flex; justify-content: center; gap: 10px; }
+        input { font-size: 24px; padding: 10px; width: 80px; text-align: center; border: 2px solid #cbd5e0; border-radius: 12px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #3182ce; color: white; border: none; border-radius: 12px; font-weight: bold; }
+        
+        .controls { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-quiz { background: #38a169; flex: 1; }
+        .btn-replay { background: #718096; flex: 1; }
+
+        .footer { margin-top: 40px; color: #a0aec0; font-size: 14px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>繁體中文 AI 筆畫</h1>
+        <h1>繁體中文筆畫學習</h1>
         
         <div class="input-group">
             <input type="text" id="charInput" maxlength="1" placeholder="字">
-            <button id="searchBtn">搜尋</button>
+            <button onclick="startLearning()">開始學習</button>
         </div>
         
         <div id="result-area" style="display:none;">
-            <div id="zhuyinDisplay" class="zhuyin-text" onclick="speak()"></div>
+            <div class="zhuyin-area" onclick="playVoice()">
+                <div id="zhuyinDisplay" class="zhuyin-text"></div>
+                <div style="font-size:12px; color:#a0aec0;">點擊聽發音</div>
+            </div>
+
             <div id="character-target"></div>
-            <p style="font-size:12px; color:#888;">點擊上方字體可聽發音</p>
+            
+            <div class="controls">
+                <button class="btn-replay" onclick="writer.animateCharacter()">重播動畫</button>
+                <button id="quizBtn" class="btn-quiz" onclick="toggleQuiz()">手寫測驗</button>
+            </div>
         </div>
 
         <div class="footer">Author: Wilson</div>
@@ -68,8 +93,9 @@
 
     <script>
         let writer = null;
+        let isQuiz = false;
 
-        function speak() {
+        function playVoice() {
             const char = document.getElementById('charInput').value;
             window.speechSynthesis.cancel();
             const msg = new SpeechSynthesisUtterance(char);
@@ -77,36 +103,30 @@
             window.speechSynthesis.speak(msg);
         }
 
-        document.getElementById('searchBtn').addEventListener('click', function() {
+        async function startLearning() {
             const char = document.getElementById('charInput').value.trim();
-            if (!char) return;
+            if (!char || !/[\u4e00-\u9fa5]/.test(char)) return;
 
             const resultArea = document.getElementById('result-area');
             const target = document.getElementById('character-target');
             const zhuyinDisplay = document.getElementById('zhuyinDisplay');
 
-            // 顯示結果區域
-            resultArea.style.display = 'block';
-            target.innerHTML = ''; // 清空舊的
-            zhuyinDisplay.innerText = char; // 顯示字型注音
+            // 1. 顯示注音 (使用穩定庫轉換)
+            try {
+                const zhuyin = pinyinPro.pinyin(char, { type: 'zhuyin' });
+                zhuyinDisplay.innerText = zhuyin;
+            } catch (e) {
+                console.error("注音讀取錯誤");
+            }
 
-            // 建立筆畫
+            // 2. 顯示結果區域
+            resultArea.style.display = 'block';
+            target.innerHTML = ''; 
+            isQuiz = false;
+            document.getElementById('quizBtn').innerText = "手寫測驗";
+
+            // 3. 載入筆畫動畫 (Hanzi Writer)
             writer = HanziWriter.create('character-target', char, {
                 width: 250,
                 height: 250,
-                padding: 10,
-                showOutline: true,
-                strokeColor: '#333',
-                charDataLoader: function(charToLoad, onComplete) {
-                    fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data-traditional@2/${encodeURIComponent(charToLoad)}.json`)
-                        .then(res => res.json())
-                        .then(onComplete);
-                }
-            });
-
-            writer.animateCharacter();
-            speak();
-        });
-    </script>
-</body>
-</html>
+                padding
